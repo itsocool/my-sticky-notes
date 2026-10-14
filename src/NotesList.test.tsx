@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NotesList } from "./NotesList";
@@ -92,6 +92,44 @@ describe("NotesList", () => {
     await user.clear(screen.getByRole("searchbox"));
     await user.type(screen.getByRole("searchbox"), "없는단어");
     expect(screen.getByText("검색 결과가 없습니다")).toBeInTheDocument();
+  });
+  it("shows the empty-note prompt only when the trimmed body is empty", async () => {
+    db.notes = [
+      { ...db.notes[0], id: "single", plainText: "한 줄 메모" },
+      { ...db.notes[0], id: "empty", plainText: "" },
+      { ...db.notes[0], id: "spaces", plainText: " \n  \n" },
+      { ...db.notes[0], id: "multiple", plainText: "제목\n본문 내용" },
+      { ...db.notes[0], id: "padded", plainText: "\n  한 줄 패딩  \n\n" },
+    ];
+    render(<NotesList />);
+
+    const prompt = "메모를 열어 내용을 적어보세요.";
+    const singleLineCard = await screen.findByRole("button", {
+      name: "한 줄 메모 메모 열기",
+    });
+    expect(within(singleLineCard).queryByText(prompt)).not.toBeInTheDocument();
+    expect(
+      within(singleLineCard).queryByRole("paragraph"),
+    ).not.toBeInTheDocument();
+
+    const emptyCards = screen.getAllByRole("button", {
+      name: "새 메모 메모 열기",
+    });
+    expect(emptyCards).toHaveLength(2);
+    for (const emptyCard of emptyCards) {
+      expect(within(emptyCard).getByText(prompt)).toBeInTheDocument();
+    }
+
+    const multipleLinesCard = screen.getByRole("button", {
+      name: "제목 메모 열기",
+    });
+    expect(within(multipleLinesCard).getByText("본문 내용")).toBeInTheDocument();
+    expect(within(multipleLinesCard).queryByText(prompt)).not.toBeInTheDocument();
+
+    const paddedCard = screen.getByRole("button", {
+      name: "한 줄 패딩 메모 열기",
+    });
+    expect(within(paddedCard).queryByText(prompt)).not.toBeInTheDocument();
   });
   it("creating a note updates the list from the storage event", async () => {
     render(<NotesList />);

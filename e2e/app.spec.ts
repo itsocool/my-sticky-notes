@@ -1,8 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function mockNative(page: Page, noteWindow = false, failSave = false) {
+async function mockNative(
+  page: Page,
+  noteWindow = false,
+  failSave = false,
+  initialPlainTexts?: string[],
+) {
   await page.addInitScript(
-    ({ noteWindow, failSave }) => {
+    ({ noteWindow, failSave, initialPlainTexts }) => {
       const id = "00000000-0000-4000-8000-000000000001";
       let notes = [
         {
@@ -43,27 +48,36 @@ async function mockNative(page: Page, noteWindow = false, failSave = false) {
           updatedAt: Date.now(),
         },
       ];
-      if (!noteWindow)
-        notes.push(
-          {
+      if (!noteWindow) {
+        if (initialPlainTexts) {
+          notes = initialPlainTexts.map((plainText, index) => ({
             ...notes[0],
-            id: "00000000-0000-4000-8000-000000000002",
-            plainText: "생각을 모아두는 곳\n좋은 문장과 작은 아이디어",
-            color: "green",
-          },
-          {
-            ...notes[0],
-            id: "00000000-0000-4000-8000-000000000003",
-            plainText: "장보기\n우유, 달걀, 커피",
-            color: "pink",
-          },
-          {
-            ...notes[0],
-            id: "00000000-0000-4000-8000-000000000004",
-            plainText: "작은 아이디어\n언젠가 해보고 싶은 것들",
-            color: "blue",
-          },
-        );
+            id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+            plainText,
+          }));
+        } else {
+          notes.push(
+            {
+              ...notes[0],
+              id: "00000000-0000-4000-8000-000000000002",
+              plainText: "생각을 모아두는 곳\n좋은 문장과 작은 아이디어",
+              color: "green",
+            },
+            {
+              ...notes[0],
+              id: "00000000-0000-4000-8000-000000000003",
+              plainText: "장보기\n우유, 달걀, 커피",
+              color: "pink",
+            },
+            {
+              ...notes[0],
+              id: "00000000-0000-4000-8000-000000000004",
+              plainText: "작은 아이디어\n언젠가 해보고 싶은 것들",
+              color: "blue",
+            },
+          );
+        }
+      }
       const callbacks = new Map<number, (value: unknown) => void>();
       const listeners = new Map<string, number[]>();
       let sequence = 0;
@@ -155,9 +169,29 @@ async function mockNative(page: Page, noteWindow = false, failSave = false) {
         },
       };
     },
-    { noteWindow, failSave },
+    { noteWindow, failSave, initialPlainTexts },
   );
 }
+
+test("short saved notes omit the prompt while empty notes keep it", async ({
+  page,
+}) => {
+  await mockNative(page, false, false, ["짧은 메모", ""]);
+  await page.goto("/");
+  const shortCard = page.getByRole("button", {
+    name: "짧은 메모 메모 열기",
+  });
+  const emptyCard = page.getByRole("button", {
+    name: "새 메모 메모 열기",
+  });
+  await expect(shortCard).toBeVisible();
+  await expect(
+    shortCard.getByText("메모를 열어 내용을 적어보세요."),
+  ).toHaveCount(0);
+  await expect(
+    emptyCard.getByText("메모를 열어 내용을 적어보세요."),
+  ).toBeVisible();
+});
 
 test("list search, create and confirmed deletion", async ({ page }) => {
   await mockNative(page);

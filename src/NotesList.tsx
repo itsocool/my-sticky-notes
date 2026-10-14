@@ -25,6 +25,17 @@ const dateFormat = new Intl.DateTimeFormat("ko-KR", {
   hour: "numeric",
   minute: "2-digit",
 });
+
+function NotePreview({ note }: { note: Note }) {
+  const preview = note.plainText
+    .split("\n")
+    .filter((line) => line.trim())
+    .slice(1)
+    .join(" · ");
+  if (preview) return <p>{preview}</p>;
+  return note.plainText.trim() ? null : <p>메모를 열어 내용을 적어보세요.</p>;
+}
+
 export function NotesList() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
@@ -251,13 +262,7 @@ export function NotesList() {
                   </time>
                 </div>
                 <h2>{noteTitle(note)}</h2>
-                <p>
-                  {note.plainText
-                    .split("\n")
-                    .filter((line) => line.trim())
-                    .slice(1)
-                    .join(" · ") || "메모를 열어 내용을 적어보세요."}
-                </p>
+                <NotePreview note={note} />
               </button>
               <div className="menu-anchor card-options">
                 <IconButton
